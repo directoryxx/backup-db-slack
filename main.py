@@ -1,13 +1,14 @@
 import os
 from dotenv import load_dotenv
 from slack_sdk import WebClient
+import time
 import json
 from slack_sdk.errors import SlackApiError
 import shlex
 import subprocess
 from datetime import date
 import math
-
+import docker
 
 def load_env():
     load_dotenv()
@@ -52,7 +53,7 @@ def load_data(client):
   DB_PORT = os.getenv('DB_PORT')
   DB_PASSWORD = os.getenv('DB_PASSWORD')
   today = date.today()
-  fileloc = os.getcwd()+'/'+os.getenv('SAVED')+'/'+today.strftime("%b-%d-%Y")+'.dmp' 
+  fileloc = os.getcwd()+'/'+os.getenv('SAVED')+'/'+today.strftime("%b-%d-%Y")+'-'+os.getenv('PURPOSE')+'.dmp'
   command = f'pg_dump -Fc --host={DB_HOST} ' \
           f'--dbname={DB_NAME} ' \
           f'--username={DB_USER} ' \
@@ -64,7 +65,7 @@ def load_data(client):
                    })
   proc.wait()
   send_message(client,'Completed Load Data', 2)
-  return [fileloc,today.strftime("%b-%d-%Y")+'.dmp']
+  return [fileloc,today.strftime("%b-%d-%Y")+'-'+os.getenv('PURPOSE')+'.dmp']
 
 def upload_data(client,fileloc):
   send_message(client,'Trying Upload Data', 1)
@@ -89,6 +90,32 @@ def convert_size(size_bytes):
    s = round(size_bytes / p, 2)
    return ["%s %s" % (s, size_name[i]),s,size_name[i]]
 
+def verify_backup(client,fileloc):
+  # COUNTUSER=$(psql -P format=wrapped  -T -X -A -U ${USERNAME} -h ${HOSTNAME} -d ${DATABASE} -c 'SELECT COUNT(*) FROM users')
+  send_message(client,'Verifying Backup', 1)
+  clientDocker = docker.from_env()
+  container_name = os.getenv('CONTAINER_TEMP')
+  DB_HOST = os.getenv('DB_HOST')
+  DB_NAME = os.getenv('DB_NAME')
+  DB_USER = os.getenv('DB_USERNAME')
+  DB_PORT = os.getenv('DB_PORT')
+  DB_PASSWORD = os.getenv('DB_PASSWORD')
+  # temp_pg = clientDocker.containers.run("postgres:12",detach=True,name=container_name,environment=["POSTGRES_DB={DB_NAME}","POSTGRES_USER={DB_USER}","POSTGRES_PASSWORD={DB_PASSWORD}"],ports={'5432/tcp': 2222})
+  os.system('docker run --name '+container_name+' -e POSTGRES_DB='+DB_NAME+' -e POSTGRES_USER='+DB_USER+' -e POSTGRES_PASSWORD='+DB_PASSWORD+' -p 127.0.0.1:5490:5432 -d postgres:12')
+  # Copy File
+  os.system('docker cp backup/'+fileloc[1]+' '+container_name+':/tmp/'+fileloc[1])
+  time.sleep(10)
+  # Unzip File
+  os.system('docker exec '+container_name+' gunzip /tmp/'+fileloc[1])
+  time.sleep(10)
+  # Restore Backup
+  os.system('docker exec '+container_name+' pg_restore -U '+DB_USER+' -d '+DB_NAME+' -1  /tmp/'+fileloc[1])
+  time.sleep(10)
+  send_message(client,'Verified Backup (Restore Docker Method)', 2)
+  os.system('docker stop '+container_name)
+  os.system('docker rm '+container_name)
+  send_message(client,'Cleanup Container', 2)
+
 if __name__ == "__main__":
   load_env()
   slack_token = os.getenv("TOKEN_BOT")
@@ -97,5 +124,9 @@ if __name__ == "__main__":
   fileloc = load_data(client)
   if fileloc != None:
     upload_data(client,fileloc)
+    verify_backup(client,fileloc)
+
+  send_message(client,'Finished Backup', 2)
+
 
   
