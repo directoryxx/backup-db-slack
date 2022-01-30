@@ -9,6 +9,7 @@ import subprocess
 from datetime import date
 import math
 import docker
+import psycopg2
 
 def load_env():
     load_dotenv()
@@ -111,10 +112,40 @@ def verify_backup(client,fileloc):
   # Restore Backup
   os.system('docker exec '+container_name+' pg_restore -U '+DB_USER+' -d '+DB_NAME+' -1  /tmp/'+fileloc[1])
   time.sleep(10)
-  send_message(client,'Verified Backup (Restore Docker Method)', 2)
+  if check_data():
+    send_message(client,'Verified Backup (Restore Docker Method)', 2)
+  else:
+    send_message(client,'Unverified Backup (Restore Docker Method)', 2)
   os.system('docker stop '+container_name)
   os.system('docker rm '+container_name)
   send_message(client,'Cleanup Container', 2)
+
+def check_data():
+  DB_HOST = os.getenv('DB_HOST')
+  DB_NAME = os.getenv('DB_NAME')
+  DB_USER = os.getenv('DB_USERNAME')
+  DB_PORT = os.getenv('DB_PORT')
+  DB_PASSWORD = os.getenv('DB_PASSWORD')
+  connectionReal = psycopg2.connect(user=DB_USER,
+                                  password=DB_PASSWORD,
+                                  host=DB_HOST,
+                                  port=DB_PORT,
+                                  database=DB_NAME)
+
+  connectionTemp = psycopg2.connect(user=DB_USER,
+                                  password=DB_PASSWORD,
+                                  host="127.0.0.1",
+                                  port="5490",
+                                  database=DB_NAME)
+
+  cursor = connectionReal.cursor()
+  cursor.execute("SELECT COUNT(*) from users")
+  cursor2 = connectionTemp.cursor()
+  cursor2.execute("SELECT COUNT(*) from users")
+  # Fetch result
+  record = cursor.fetchone()
+  record2 = cursor2.fetchone()
+  return record == record2
 
 if __name__ == "__main__":
   load_env()
