@@ -73,7 +73,7 @@ def upload_data(client,fileloc):
   size = os.stat(fileloc[0]).st_size
   convert = convert_size(size)
   
-  if ((convert[1] >= 500 and convert[2] == 'MB') or (convert[2] == "GB" and convert[1] >= 1)):
+  if ((convert[1] >= 100 and convert[2] == 'MB') or (convert[2] == "GB" and convert[1] >= 1)):
     splitfile(fileloc,client)
   else:
     response = client.files_upload(
@@ -149,7 +149,7 @@ def check_data():
   return record == record2
 
 def splitfile(fileloc,client):
-  os.system('split '+fileloc[0]+' -b 524288000 '+fileloc[1])
+  os.system('split '+fileloc[0]+' -b 124288000 '+fileloc[1])
   # time.sleep(30)
   currentpwd = os.getcwd()
   for path, currentDirectory, files in os.walk(currentpwd):
