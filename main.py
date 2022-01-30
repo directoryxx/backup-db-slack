@@ -72,8 +72,9 @@ def upload_data(client,fileloc):
   send_message(client,'Trying Upload Data', 1)
   size = os.stat(fileloc[0]).st_size
   convert = convert_size(size)
-  if (convert[1] >= 500 and convert[2] == 'MB'):
-    print("split")
+  
+  if ((convert[1] >= 500 and convert[2] == 'MB') or (convert[2] == "GB" and convert[1] >= 1)):
+    splitfile(fileloc,client)
   else:
     response = client.files_upload(
         channels=os.getenv('CHANNEL_NAME'),
@@ -147,12 +148,27 @@ def check_data():
   record2 = cursor2.fetchone()
   return record == record2
 
+def splitfile(fileloc,client):
+  os.system('split '+fileloc[0]+' -b 524288000 '+fileloc[1])
+  # time.sleep(30)
+  currentpwd = os.getcwd()
+  for path, currentDirectory, files in os.walk(currentpwd):
+    for file in files:
+        if file.startswith(fileloc[1]+'a'):
+            response = client.files_upload(
+                channels=os.getenv('CHANNEL_NAME'),
+                file=currentpwd+'/'+file,
+                title=file
+            )
+            os.remove(file)  
+
 if __name__ == "__main__":
   load_env()
   slack_token = os.getenv("TOKEN_BOT")
-  client = WebClient(token=slack_token)
+  client = WebClient(token=slack_token,timeout=120000)
   send_message(client,'Starting Backup', 1)
   fileloc = load_data(client)
+  # fileloc = ["/home/directoryx/workspace/backup/backup/Jan-30-2022-survey.dmp","Jan-30-2022-survey.dmp"]
   if fileloc != None:
     upload_data(client,fileloc)
     verify_backup(client,fileloc)
