@@ -173,6 +173,7 @@ if __name__ == "__main__":
     upload_data(client,fileloc)
     verify_backup(client,fileloc)
 
+  os.remove(fileloc[0])
   send_message(client,'Finished Backup', 2)
 
 
