@@ -31,7 +31,7 @@ def send_message(client,message,stat):
       "fields": [
         {
           "title": "master",
-          "value": "Postgres Master Revamp"
+          "value": "Postgres Master "+os.getenv('PURPOSE')
         }
       ]
     }
