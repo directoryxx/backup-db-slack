@@ -93,7 +93,10 @@ def convert_size(size_bytes):
    return ["%s %s" % (s, size_name[i]),s,size_name[i]]
 
 def verify_backup(client,fileloc):
+  container_name = os.getenv('CONTAINER_TEMP')
   # COUNTUSER=$(psql -P format=wrapped  -T -X -A -U ${USERNAME} -h ${HOSTNAME} -d ${DATABASE} -c 'SELECT COUNT(*) FROM users')
+  os.system('docker stop '+container_name)
+  os.system('docker rm '+container_name)
   send_message(client,'Verifying Backup', 1)
   clientDocker = docker.from_env()
   container_name = os.getenv('CONTAINER_TEMP')
